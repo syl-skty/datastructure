@@ -1,6 +1,6 @@
 package com.skty.study.bTree;
 
-class Node<K extends Comparable,V> {
+class Node<K extends Comparable<K>, V> {
 
     /**
      * 节点大小，当前节点所能容纳所有元素的大小
@@ -25,6 +25,11 @@ class Node<K extends Comparable,V> {
      * 当前节点元素数
      */
     private int elementNum;
+
+    /**
+     * 是否为叶子节点
+     */
+    private boolean isLeafNode;
 
     public int getNodeSize() {
         return nodeSize;
@@ -80,5 +85,13 @@ class Node<K extends Comparable,V> {
      */
     public int getLogicSize(){
         return  nodeSize-1;
+    }
+
+    public boolean isLeafNode() {
+        return isLeafNode;
+    }
+
+    public void setLeafNode(boolean leafNode) {
+        isLeafNode = leafNode;
     }
 }
