@@ -1,7 +1,4 @@
-package com.skty.study.b_tree;
-
-import java.util.Collections;
-import java.util.List;
+package com.skty.study.bTree;
 
 public class Test {
 
