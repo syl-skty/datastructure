@@ -38,7 +38,23 @@ public class BTree<K extends Comparable<K>, V> {
      * @return true:不存在该元素，已经新增进去  false:1.该元素已经存在树中，用新元素替换旧元素
      */
     private boolean addElement(Element<K,V> e){
-        return false;
+        boolean insertResult = false;
+        //先获取可以允许插入的节点
+        InsertMode insertMode = findInsertAbleNode(rootNode, e.getKey());
+        Element<K, V> targetElement = insertMode.targetElement;
+        switch (insertMode.mode) {
+            case InsertMode.LEFT_INSERT_MODE://左侧插入
+                break;
+            case InsertMode.RIGHT_INSERT_MODE://右侧插入
+                break;
+            case InsertMode.REPLACE_MODE://替换模式,只需要替换节点元素的值
+                targetElement.setValue(e.getValue());
+                insertResult = false;
+                break;
+            case InsertMode.ILLEGAL_MODE://树不合法
+                break;
+        }
+        return insertResult;
     }
 
 
@@ -94,31 +110,78 @@ public class BTree<K extends Comparable<K>, V> {
     }
 
     /**
-     * 查找可以允许当前元素插入的节点
+     * 递归查找可以允许当前元素插入的节点
      *
      * @param insertKey 要插入的元素对应的key值
      * @return 返回允许插入当前元素的节点, 如果在搜索的过程中发现元素已经存在，则返回null
      */
-    private Node<K, V> findInsertAbleNode(Node<K, V> startNode, K insertKey) {
-        for (Element<K, V> e : startNode.getElements()) {
+    private InsertMode findInsertAbleNode(Node<K, V> startNode, K insertKey) {
+        Element<K, V>[] elements = startNode.getElements();
+        int length = elements.length;
+        for (int i = 0; i < length; i++) {
+            Element<K, V> e = elements[i];
             int compareResult = e.getKey().compareTo(insertKey);
             if (compareResult > 0) {//查找元素小于当前遍历元素，表示查找的元素可能在当前元素的左子树上
                 Node<K, V> leftNode = e.getLeftNode();
                 if (leftNode == null) {//没有左子树，表示当前元素需要插入的位置就是当前元素所在节点
-                    return e.getCurrentNode();
+                    return new InsertMode(e, InsertMode.LEFT_INSERT_MODE);
                 } else {
                     return findInsertAbleNode(leftNode, insertKey);//使用左子树作为参数，递归查找
                 }
             } else if (compareResult < 0) {//当前元素小于查找的key，表示查找的元素可能在右子树或者下一个元素中
                 Node<K, V> rightNode = e.getRightNode();
-                if (rightNode != null) {//当前节点的右子树存在，继续对右子树进行递归查找
+                if (rightNode == null) {//右子树为空
+                    if (i == length - 1) {//判断是否在该元素后面还有元素，如果没有，则表示当前元素为最后一个，需要插入在当前元素的右边
+                        return new InsertMode(e, InsertMode.RIGHT_INSERT_MODE);
+                    }//else{}//如果还有当前元素右侧还有下一个元素的话，就对下一个元素进行遍历
+                } else {//当前节点的右子树存在，继续对右子树进行递归查找
                     return findInsertAbleNode(rightNode, insertKey);
-                } //else{当前元素的右子树不存在，表示在当前元素的后一个元素,处理下一个元素}
-            } else {//找到了与查找的元素相等的数据,不需要进行插入
-                return null;
+                }
+            } else {//找到了与查找的元素相等的数据,不需要进行插入,进行元素替换
+                return new InsertMode(e, InsertMode.REPLACE_MODE);
             }
         }
-        return null;
+        return new InsertMode(null, InsertMode.ILLEGAL_MODE);//树有问题，不合法操作
+    }
+
+    /**
+     * 插入元素时的模式，用来指示当前要插入的元素，和插入操作的模式，插入在指定元素的左边/右边，还是不进行插入，更新查找到的元素
+     */
+    class InsertMode {
+        /**
+         * 左侧插入模式，将当前元素插入到指定元素的左侧
+         */
+        public static final int LEFT_INSERT_MODE = -1;
+
+        /**
+         * 替换模式，使用当前元素替换查询到的元素
+         */
+        public static final int REPLACE_MODE = 0;
+
+        /**
+         * 右侧插入模式，将当前元素插入到指定元素的右侧
+         */
+        public static final int RIGHT_INSERT_MODE = 1;
+
+        /**
+         * 不合法插入模式
+         */
+        public static final int ILLEGAL_MODE = -9;
+
+        /**
+         * 目标元素
+         */
+        public Element<K, V> targetElement;
+
+        /**
+         * 当前插入的模式
+         */
+        public int mode;
+
+        public InsertMode(Element<K, V> targetElement, int mode) {
+            this.targetElement = targetElement;
+            this.mode = mode;
+        }
     }
 
 }

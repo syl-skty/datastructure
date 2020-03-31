@@ -118,7 +118,7 @@ class Element<K extends Comparable<K>, V> {
      * 判断当前元素在当前节点上是否有后置元素
      * @return 是否有
      */
-    private boolean hasNext(){
+    public boolean hasNext() {
         return index<currentNode.getLogicSize();
     }
 
