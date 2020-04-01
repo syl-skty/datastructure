@@ -24,20 +24,22 @@ public class BTree<K extends Comparable<K>, V> {
 
     /**
      * 新增数据，这个方法暴露给外部使用
-     * @param key 指定key
-     * @param  value 指定的value
+     *
+     * @param key   指定key
+     * @param value 指定的value
      * @return true:不存在该元素，已经新增进去  false:1.该元素已经存在树中，用新元素替换旧元素
      */
-    private boolean addElement(K key,V value){
-      return addElement(new Element<K, V>(key,value));
+    private boolean addElement(K key, V value) {
+        return addElement(new Element<K, V>(key, value));
     }
 
     /**
      * 新增元素
+     *
      * @param e 要新增的元素
      * @return true:不存在该元素，已经新增进去  false:1.该元素已经存在树中，用新元素替换旧元素
      */
-    private boolean addElement(Element<K,V> e){
+    private boolean addElement(Element<K, V> e) {
         boolean insertResult = false;
         //先获取可以允许插入的节点
         InsertMode insertMode = findInsertAbleNode(rootNode, e.getKey());
@@ -57,22 +59,34 @@ public class BTree<K extends Comparable<K>, V> {
         return insertResult;
     }
 
+    /**
+     * 执行元素插入
+     *
+     * @param element    要插入的元素
+     * @param insertMode 插入模式
+     */
+    private void insertElement(Element<K, V> element, InsertMode insertMode) {
+        Element<K, V> targetElement = insertMode.targetElement;
+        targetElement.getCurrentNode().getLogicSize();
+    }
 
     /**
      * 查找B树，获取指定key对应的value
+     *
      * @param key 指定的key
      * @return 对应的value，没有返回null
      */
-    public V findValue(K key){
+    public V findValue(K key) {
         Element<K, V> element = findElement(key);
-        if(element!=null){
+        if (element != null) {
             return element.getValue();
         }
-        return  null;
+        return null;
     }
 
     /**
      * 通过指定key查找元素
+     *
      * @param key 指定的key
      * @return 返回对应的元素，不存在则返回null
      */
@@ -145,40 +159,73 @@ public class BTree<K extends Comparable<K>, V> {
     }
 
     /**
+     * 执行节点分裂
+     * 1.获取中间节点
+     * 2.将左边元素构造成一个节点，将右边元素构造成一个节点
+     * 3.将新生成的两个节点分别作为中间节点的左右子树
+     * 2.将中间节点上升到父节点
+     */
+    private void nodeDivide(Node<K, V> node) {
+        if (node.needDivide()) {
+            //中间元素
+            Element<K, V> middleElement = node.getMiddleElement();
+            //中间元素所在的索引数
+            int middleElementIndex = middleElement.getIndex();
+
+            //左边节点构成的数组
+            Element<K, V>[] leftElement = node.getLeftElement(middleElementIndex);
+            //右边节点构成的节点
+            Element<K, V>[] rightElement = node.getRightElement(middleElementIndex);
+
+            //新生成的左子节点
+            Node<K, V> newLeftChildNode = new Node<>(leftElement, leftElement.length, true);
+            //新生成的右子节点
+            Node<K, V> newRightChildNode = new Node<>(rightElement, rightElement.length, true);
+
+            //将新节点放到中间元素的左右子节点
+            middleElement.setLeftNode(newLeftChildNode);
+            middleElement.setRightNode(newRightChildNode);
+
+            Node<K, V> parentNode = node.getParentNode();
+            parentNode
+        }
+    }
+
+    /**
      * 插入元素时的模式，用来指示当前要插入的元素，和插入操作的模式，插入在指定元素的左边/右边，还是不进行插入，更新查找到的元素
      */
     class InsertMode {
         /**
          * 左侧插入模式，将当前元素插入到指定元素的左侧
          */
-        public static final int LEFT_INSERT_MODE = -1;
+        static final int LEFT_INSERT_MODE = -1;
 
         /**
          * 替换模式，使用当前元素替换查询到的元素
          */
-        public static final int REPLACE_MODE = 0;
+        static final int REPLACE_MODE = 0;
 
         /**
          * 右侧插入模式，将当前元素插入到指定元素的右侧
          */
-        public static final int RIGHT_INSERT_MODE = 1;
+        static final int RIGHT_INSERT_MODE = 1;
 
         /**
          * 不合法插入模式
          */
-        public static final int ILLEGAL_MODE = -9;
+        static final int ILLEGAL_MODE = -9;
 
         /**
          * 目标元素
          */
-        public Element<K, V> targetElement;
+        Element<K, V> targetElement;
 
         /**
          * 当前插入的模式
          */
-        public int mode;
+        int mode;
 
-        public InsertMode(Element<K, V> targetElement, int mode) {
+        InsertMode(Element<K, V> targetElement, int mode) {
             this.targetElement = targetElement;
             this.mode = mode;
         }
