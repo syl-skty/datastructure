@@ -146,15 +146,37 @@ class Node<K extends Comparable<K>, V> {
         return getElement(index > 1 ? index - 1 : 0);
     }
 
-
     /**
-     * 在当前节点插入指定元素
+     * 在当前节点插入指定元素,选择适当的顺序进行排序操作
      *
      * @param element 要插入的元素
      */
     void insertElement(Element<K, V> element) {
-        for (Element<K, V> e : elements) {
+        for (int i = 0; i < elementNum; i++) {
+            K key = element.getKey();
+            int compare = key.compareTo(elements[i].getKey());
+            if (compare > 0) {//值大于当前元素
+                if (i == elementNum - 1) {//已经比当前节点的最后一个元素都大，直接插入到最后
+                    elements[i + 1] = element;
+                    element.setCurrentNode(this);
+                    element.setIndex(i + 1);
+                    this.elementNum++;//元素数量加一
+                    return;
+                } //else{}//继续对下一个元素进行判断(继续循环)
+            } else if (compare < 0) {//值小于当前元素,则表示要将元素插入到当前元素的左侧，要将之前的元素以及后面的元素全部后移
+                Element<K, V>[] moveElements = Arrays.copyOfRange(this.elements, i, elementNum);
+                System.arraycopy(moveElements, 0, elements, i + 1, moveElements.length);
+                elements[i] = element;
+                element.setCurrentNode(this);
+                element.setIndex(i);
+                this.elementNum++;//元素数量加一
+                return;
+            } else {//元素相等，直接替换当前元素(当前节点元素数量保持不变)
+                elements[i] = element;
+                element.setCurrentNode(this);
+                element.setIndex(i);
+                return;
+            }
         }
     }
-
 }

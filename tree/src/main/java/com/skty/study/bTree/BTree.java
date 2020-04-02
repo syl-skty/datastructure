@@ -102,7 +102,10 @@ public class BTree<K extends Comparable<K>, V> {
      * @return 查询到的元素，否则返回null
      */
     private Element<K, V> findElement(Node<K, V> node, K key) {
-        for (Element<K, V> e : node.getElements()) {
+        Element<K, V>[] elements = node.getElements();
+
+        for (int i = 0; i < elements.length; i++) {
+            Element<K, V> e = elements[i];
             int compareResult = e.getKey().compareTo(key);
             if (compareResult > 0) {//查找元素小于当前遍历元素，表示查找的元素可能在当前元素的左子树上
                 Node<K, V> leftNode = e.getLeftNode();
@@ -112,10 +115,23 @@ public class BTree<K extends Comparable<K>, V> {
                     return findElement(leftNode, key);//使用左子树作为参数，递归查找
                 }
             } else if (compareResult < 0) {//当前元素小于查找的key，表示查找的元素可能在右子树或者下一个元素中
-                Node<K, V> rightNode = e.getRightNode();
-                if (rightNode != null) {//当前节点的右子树存在，继续对右子树进行递归查找
-                    return findElement(rightNode, key);
-                } //else{当前元素的右子树不存在，表示在当前元素的后一个元素,处理下一个元素}
+                if (i == elements.length - 1) {//如果当前元素是节点最后一个元素,则只可能在当前元素的右子树中
+                    Node<K, V> rightNode = e.getRightNode();
+                    if (rightNode != null) {//当前节点的右子树存在，继续对右子树进行递归查找
+                        return findElement(rightNode, key);
+                    } else {
+                        return null;//不存在右子树，表示找不到
+                    }
+                } else {//不是最后一个元素，要判断当前元素后面的元素是否也比查找的key要小，如果要小，就必须继续往后找，如果后面元素比查找的元素要大，则在当前元素的右节点上查找
+                    if (elements[i + 1].getKey().compareTo(key) > 0) {
+                        Node<K, V> rightNode = e.getRightNode();
+                        if (rightNode != null) {//当前节点的右子树存在，继续对右子树进行递归查找
+                            return findElement(rightNode, key);
+                        } else {
+                            return null;//不存在右子树，表示找不到
+                        }
+                    }
+                }
             } else {//找到了与查找的元素相等的数据
                 return e;
             }
@@ -163,7 +179,8 @@ public class BTree<K extends Comparable<K>, V> {
      * 1.获取中间节点
      * 2.将左边元素构造成一个节点，将右边元素构造成一个节点
      * 3.将新生成的两个节点分别作为中间节点的左右子树
-     * 2.将中间节点上升到父节点
+     * 4.将中间节点上升到父节点
+     * 5.
      */
     private void nodeDivide(Node<K, V> node) {
         if (node.needDivide()) {
@@ -186,8 +203,11 @@ public class BTree<K extends Comparable<K>, V> {
             middleElement.setLeftNode(newLeftChildNode);
             middleElement.setRightNode(newRightChildNode);
 
+            //升级中间节点到父节点
             Node<K, V> parentNode = node.getParentNode();
-            parentNode
+            parentNode.insertElement(middleElement);
+
+
         }
     }
 
