@@ -1,6 +1,7 @@
 package com.skty.study.bTree;
 
 import java.util.Arrays;
+import java.util.stream.Stream;
 
 class Node<K extends Comparable<K>, V> {
 
@@ -29,56 +30,67 @@ class Node<K extends Comparable<K>, V> {
     private int elementNum;
 
     /**
-     * 是否为叶子节点
+     * 当前节点类型
      */
-    private boolean isLeafNode;
+    private NodeType nodeType;
 
-    Node() {
+    /**
+     * 节点类型
+     */
+    enum NodeType {
+        ROOTNODE, LEAFNODE, MIDDLENODE;
     }
 
-    Node(Element<K, V>[] elements, int elementNum, boolean isLeafNode) {
-        this.elements = elements;
-        this.elementNum = elementNum;
-        this.isLeafNode = isLeafNode;
+    @SuppressWarnings("unchecked")
+    Node(int nodeSize, NodeType nodeType, Element<K, V>[] elements) {
+        this.elements = new Element[nodeSize];//声名空间
+        this.nodeSize = nodeSize;
+        this.nodeType = nodeType;
+        if (elements != null) {
+            this.elementNum = elements.length;
+            //将传入元素与当前节点关联
+            for (int i = 0; i < elementNum; i++) {
+                this.elements[i] = elements[i];
+                elements[i].setCurrentNode(this);
+                elements[i].setIndex(i);
+            }
+        }
     }
 
-    public int getNodeSize() {
+    int getNodeSize() {
         return nodeSize;
     }
 
-    public void setNodeSize(int nodeSize) {
-        this.nodeSize = nodeSize;
+    /**
+     * 获取所有有值的元素
+     *
+     * @return elementNum数量的元素
+     */
+    Element<K, V>[] getElements() {
+        return Arrays.copyOf(elements, elementNum);
     }
 
-    public Element<K, V>[] getElements() {
-        return elements;
-    }
-
-    public void setElements(Element<K, V>[] elements) {
-        this.elements = elements;
-    }
-
-    public Node<K, V> getParentNode() {
+    Node<K, V> getParentNode() {
         return parentNode;
     }
 
-    public void setParentNode(Node<K, V> parentNode) {
+    void setParentNode(Node<K, V> parentNode) {
         this.parentNode = parentNode;
     }
 
-    public Node<K, V> getChildNode() {
+    Node<K, V> getChildNode() {
         return childNode;
     }
 
-    public void setChildNode(Node<K, V> childNode) {
+    void setChildNode(Node<K, V> childNode) {
         this.childNode = childNode;
     }
 
-    public int getElementNum() {
+    int getElementNum() {
         return elementNum;
     }
 
-    public void setElementNum(int elementNum) {
+    void setElementNum(int elementNum) {
         this.elementNum = elementNum;
     }
 
@@ -119,12 +131,25 @@ class Node<K extends Comparable<K>, V> {
         return nodeSize - 1;
     }
 
-    public boolean isLeafNode() {
-        return isLeafNode;
+    NodeType getNodeType() {
+        return nodeType;
     }
 
-    public void setLeafNode(boolean leafNode) {
-        isLeafNode = leafNode;
+    /**
+     * 是否为叶子节点
+     *
+     * @return true/false
+     */
+    boolean isLeafNode() {
+        return nodeType == NodeType.LEAFNODE;
+    }
+
+    boolean isRootNode() {
+        return nodeType == NodeType.ROOTNODE;
+    }
+
+    boolean isMiddleNode() {
+        return nodeType == NodeType.MIDDLENODE;
     }
 
     /**
@@ -146,36 +171,63 @@ class Node<K extends Comparable<K>, V> {
         return getElement(index > 1 ? index - 1 : 0);
     }
 
+
+    /**
+     * 在指定的位置插入元素
+     *
+     * @param element 要插入的元素
+     * @param index   指定的位置
+     */
+    void insertElement(Element<K, V> element, int index) {
+        if (index < nodeSize) {
+            if (index >= elementNum) {//插到当前最后一个元素后面
+                elements[index] = element;
+            } else {
+                Element<K, V>[] moveElements = Arrays.copyOfRange(elements, index, elementNum);
+                Stream.of(moveElements).forEach(e -> e.setIndex(e.getIndex() + 1));//将后移的元素的索引位置也进行+1
+                System.arraycopy(moveElements, 0, elements, index + 1, moveElements.length);
+                elements[index] = element;
+            }
+            element.setIndex(index);
+            element.setCurrentNode(this);
+            elementNum++;
+        } else {
+            throw new IllegalArgumentException("向节点插入元素时，不合法的插入的位置");
+        }
+    }
+
+
     /**
      * 在当前节点插入指定元素,选择适当的顺序进行排序操作
      *
      * @param element 要插入的元素
      */
     void insertElement(Element<K, V> element) {
-        for (int i = 0; i < elementNum; i++) {
-            K key = element.getKey();
-            int compare = key.compareTo(elements[i].getKey());
-            if (compare > 0) {//值大于当前元素
-                if (i == elementNum - 1) {//已经比当前节点的最后一个元素都大，直接插入到最后
-                    elements[i + 1] = element;
-                    element.setCurrentNode(this);
-                    element.setIndex(i + 1);
-                    this.elementNum++;//元素数量加一
+        if (elementNum == 0) {
+            insertElement(element, 0);
+        } else {
+            for (int i = 0; i < elementNum; i++) {
+                K key = element.getKey();
+                int compare = key.compareTo(elements[i].getKey());
+                if (compare > 0) {//值大于当前元素
+                    if (i == elementNum - 1) {//已经比当前节点的最后一个元素都大，直接插入到最后
+                        insertElement(element, elementNum);
+                        return;
+                    } else {//中间元素，需要判断要插入的元素是不是比当前元素大，比当前元素的后面元素小，如果是则插入到当前元素的后面，否则继续对下一个元素进行判断
+                        if (key.compareTo(elements[i + 1].getKey()) < 0) {
+                            insertElement(element, i + 1);
+                            return;
+                        }
+                    }
+                } else if (compare < 0) {//值小于当前元素,则表示要将元素插入到当前元素的左侧，要将当前元素以及后面的元素全部后移
+                    insertElement(element, i - 1);
                     return;
-                } //else{}//继续对下一个元素进行判断(继续循环)
-            } else if (compare < 0) {//值小于当前元素,则表示要将元素插入到当前元素的左侧，要将之前的元素以及后面的元素全部后移
-                Element<K, V>[] moveElements = Arrays.copyOfRange(this.elements, i, elementNum);
-                System.arraycopy(moveElements, 0, elements, i + 1, moveElements.length);
-                elements[i] = element;
-                element.setCurrentNode(this);
-                element.setIndex(i);
-                this.elementNum++;//元素数量加一
-                return;
-            } else {//元素相等，直接替换当前元素(当前节点元素数量保持不变)
-                elements[i] = element;
-                element.setCurrentNode(this);
-                element.setIndex(i);
-                return;
+                } else {//元素相等，直接替换当前元素(当前节点元素数量保持不变)
+                    elements[i] = element;
+                    element.setCurrentNode(this);
+                    element.setIndex(i);
+                    return;
+                }
             }
         }
     }

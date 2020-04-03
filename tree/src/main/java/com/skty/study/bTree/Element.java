@@ -36,59 +36,59 @@ class Element<K extends Comparable<K>, V> {
      */
     private Node<K,V> rightNode;
 
-    public Element() {
+    Element() {
     }
 
-    public Element(K key, V value) {
+    Element(K key, V value) {
         this.key = key;
         this.value = value;
     }
 
-    public Node<K, V> getCurrentNode() {
+    Node<K, V> getCurrentNode() {
         return currentNode;
     }
 
-    public void setCurrentNode(Node<K, V> currentNode) {
+    void setCurrentNode(Node<K, V> currentNode) {
         this.currentNode = currentNode;
     }
 
-    public int getIndex() {
+    int getIndex() {
         return index;
     }
 
-    public void setIndex(int index) {
+    void setIndex(int index) {
         this.index = index;
     }
 
-    public K getKey() {
+    K getKey() {
         return key;
     }
 
-    public void setKey(K key) {
+    void setKey(K key) {
         this.key = key;
     }
 
-    public V getValue() {
+    V getValue() {
         return value;
     }
 
-    public void setValue(V value) {
+    void setValue(V value) {
         this.value = value;
     }
 
-    public Node<K, V> getLeftNode() {
+    Node<K, V> getLeftNode() {
         return leftNode;
     }
 
-    public void setLeftNode(Node<K, V> leftNode) {
+    void setLeftNode(Node<K, V> leftNode) {
         this.leftNode = leftNode;
     }
 
-    public Node<K, V> getRightNode() {
+    Node<K, V> getRightNode() {
         return rightNode;
     }
 
-    public void setRightNode(Node<K, V> rightNode) {
+    void setRightNode(Node<K, V> rightNode) {
         this.rightNode = rightNode;
     }
 
@@ -96,8 +96,8 @@ class Element<K extends Comparable<K>, V> {
      * 获取当前元素的后置元素
      * @return 当前元素的后置元素,没有时返回null
      */
-    public Element<K, V> getNextElement() {
-        if(index<currentNode.getLogicSize()){
+    Element<K, V> getNextElement() {
+        if (index < currentNode.getElementNum() - 1) {
             return currentNode.getElement(index+1);
         }
         return null;
@@ -107,7 +107,7 @@ class Element<K extends Comparable<K>, V> {
      * 获取当前元素的前置元素
      * @return 当前元素的前置元素，没有时返回null
      */
-    public Element<K, V> getPreElement() {
+    Element<K, V> getPreElement() {
         if(index!=0){
            return currentNode.getElement(index-1);
         }
