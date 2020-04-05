@@ -80,12 +80,28 @@ class Element<K extends Comparable<K>, V> {
         return leftNode;
     }
 
+    /**
+     * 是否存在左子树
+     * @return true/false
+     */
+    boolean hasLeftNode(){
+        return leftNode!=null;
+    }
+
     void setLeftNode(Node<K, V> leftNode) {
         this.leftNode = leftNode;
     }
 
     Node<K, V> getRightNode() {
         return rightNode;
+    }
+
+    /**
+     * 是否存在右子树
+     * @return true/false
+     */
+    boolean hasRightLeft(){
+            return rightNode!=null;
     }
 
     void setRightNode(Node<K, V> rightNode) {
@@ -118,8 +134,51 @@ class Element<K extends Comparable<K>, V> {
      * 判断当前元素在当前节点上是否有后置元素
      * @return 是否有
      */
-    public boolean hasNext() {
+     boolean hasNext() {
         return index<currentNode.getLogicSize();
+    }
+
+    /**
+     * 是否是当前节点中的最后一个元素
+     * @return true/false
+     */
+    boolean isNodeLastElement(){
+         return index==currentNode.getElementNum()-1;
+    }
+
+    /**
+     * 是否是当前节点中的第一个元素
+     * @return true/false
+     */
+    boolean isNodeFirstElement(){
+        return index==0;
+    }
+
+    /**
+     * 当前元素的key是否大于指定的key
+     * @param key 与当前元素比较的key
+     * @return true/false
+     */
+    boolean keyGreaterThan(K key){
+        return this.key.compareTo(key)>0;
+    }
+
+    /**
+     * 使用当前的key与指定的key值进行比较
+     * @param key 要比较的key
+     * @return 正数表示大于，0表示相等，负数表示当前元素小于
+     */
+    int keyCompareWith(K key){
+        return this.key.compareTo(key);
+    }
+
+    /**
+     * 元素比较（比较key）
+     * @param other 与当前元素比较的元素
+     * @return 正数表示大于，0表示相等，负数表示当前元素小于
+     */
+    int compareWith(Element<K,V> other){
+        return keyCompareWith(other.getKey());
     }
 
 }

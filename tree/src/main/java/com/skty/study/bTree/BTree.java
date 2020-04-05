@@ -59,10 +59,10 @@ public class BTree<K extends Comparable<K>, V> {
         List<Node<K, V>> nextNodeList = new ArrayList<>();
         for (Node<K, V> node : nodeList) {
             for (Element<K, V> e : node.getElements()) {
-                if (e.getLeftNode() != null) {
+                if (e.hasLeftNode()) {
                     nextNodeList.add(e.getLeftNode());
                 }
-                if (e.getRightNode() != null) {
+                if (e.isNodeLastElement()&&e.hasRightLeft()) {//最后一个元素需要将左右子树同时打印
                     nextNodeList.add(e.getRightNode());
                 }
             }
@@ -171,14 +171,14 @@ public class BTree<K extends Comparable<K>, V> {
         boolean leafNode = node.isLeafNode();
         for (int i = 0; i < elements.length; i++) {
             Element<K, V> e = elements[i];
-            int compareResult = e.getKey().compareTo(key);
+            int compareResult = e.keyCompareWith(key);
             if (compareResult > 0) {//查找元素小于当前遍历元素，表示查找的元素可能在当前元素的左子树上
                 return leafNode ? null : findElement(e.getLeftNode(), key);
             } else if (compareResult < 0) {//当前元素小于查找的key，表示查找的元素可能在右子树或者下一个元素中
                 if (i == elements.length - 1) {//如果当前元素是节点最后一个元素,则只可能在当前元素的右子树中
                     return leafNode ? null : findElement(e.getRightNode(), key);
                 } else {//不是最后一个元素，要判断当前元素后面的元素是否也比查找的key要小，如果要小，就必须继续往后找，如果后面元素比查找的元素要大，则在当前元素的右节点上查找
-                    if (elements[i + 1].getKey().compareTo(key) > 0) {
+                    if (elements[i + 1].keyGreaterThan(key)) {
                         return leafNode ? null : findElement(e.getRightNode(), key);
                     }
                 }
@@ -205,14 +205,14 @@ public class BTree<K extends Comparable<K>, V> {
             boolean nodeCanInsert = startNode.isLeafNode() || (height == 1);
             for (int i = 0; i < length; i++) {
                 Element<K, V> e = elements[i];
-                int compareResult = e.getKey().compareTo(insertKey);
+                int compareResult = e.keyCompareWith(insertKey);
                 if (compareResult > 0) {//查找元素小于当前遍历元素，表示查找的元素可能在当前元素的左子树上
                     return nodeCanInsert ? leftInsertMode(e) : getInsertMode(e.getLeftNode(), insertKey);
                 } else if (compareResult < 0) {//当前元素小于查找的key，表示查找的元素可能在右子树或者下一个元素中
                     if (i == elements.length - 1) {//如果当前元素是当前节点的最后一个元素，当前节点为叶子节点，则直接插入到当前节点后，不是叶子节点，则去右子树上找
                         return nodeCanInsert ? rightInsertMode(e) : getInsertMode(e.getRightNode(), insertKey);
                     } else {//不是最后一个元素，判断当前元素后面的元素是否也比查找的key要小，如果要小，就必须继续往后找，如果后面元素比查找的元素要大，则在当前元素的右节点上查找
-                        if (elements[i + 1].getKey().compareTo(insertKey) > 0) {//后置元素比插入元素大，则表示插入在当前元素的后面或者右子树
+                        if (elements[i + 1].keyGreaterThan(insertKey)) {//后置元素比插入元素大，则表示插入在当前元素的后面或者右子树
                             return nodeCanInsert ? rightInsertMode(e) : getInsertMode(e.getRightNode(), insertKey);
                         }
                     }
@@ -245,10 +245,13 @@ public class BTree<K extends Comparable<K>, V> {
             //右边节点构成的节点
             Element<K, V>[] rightElements = node.getRightElement(middleElementIndex);
 
+            //如果当前节点是叶子节点(或者当前数的高度为1，只有一层)，则新生成的两个节点也是在叶子节点；不是的话表示当前为中间节点或者根节点，则需要将新生成的节点作为中间节点
+            Node.NodeType nodeType=node.isLeafNode()||height==1?Node.NodeType.LEAFNODE: Node.NodeType.MIDDLENODE;
+
             //新生成的左子节点
-            Node<K, V> newLeftChildNode = new Node<>(nodeSize, Node.NodeType.LEAFNODE, leftElements);
+            Node<K, V> newLeftChildNode = new Node<>(nodeSize,nodeType, leftElements);
             //新生成的右子节点
-            Node<K, V> newRightChildNode = new Node<>(nodeSize, Node.NodeType.LEAFNODE, rightElements);
+            Node<K, V> newRightChildNode = new Node<>(nodeSize, nodeType, rightElements);
 
             Node<K, V> parentNode;
             if (node.isRootNode()) {//当前节点是根节点，则需要生成一个新节点作为根节点

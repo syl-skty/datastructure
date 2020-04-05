@@ -6,9 +6,9 @@ public class Test {
         BTree<Integer, String> tree = new BTree<>(4);
         for (int i = 1; i < 13; i++) {
             tree.insert(i, i + "");
+            System.out.println("\t|\n\t|\n\t| "+i+"\n\t\\/");
             System.out.println(tree.printBTree());
             System.out.println("==========================================================================");
         }
-        System.out.println(tree.printBTree());
     }
 }

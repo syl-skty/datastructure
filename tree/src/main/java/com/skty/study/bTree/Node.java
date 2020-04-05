@@ -208,13 +208,13 @@ class Node<K extends Comparable<K>, V> {
         } else {
             for (int i = 0; i < elementNum; i++) {
                 K key = element.getKey();
-                int compare = key.compareTo(elements[i].getKey());
+                int compare = element.compareWith(elements[i]);
                 if (compare > 0) {//值大于当前元素
                     if (i == elementNum - 1) {//已经比当前节点的最后一个元素都大，直接插入到最后
                         insertElement(element, elementNum);
                         return;
                     } else {//中间元素，需要判断要插入的元素是不是比当前元素大，比当前元素的后面元素小，如果是则插入到当前元素的后面，否则继续对下一个元素进行判断
-                        if (key.compareTo(elements[i + 1].getKey()) < 0) {
+                        if (elements[i+1].keyGreaterThan(key)) {
                             insertElement(element, i + 1);
                             return;
                         }
@@ -230,5 +230,13 @@ class Node<K extends Comparable<K>, V> {
                 }
             }
         }
+    }
+
+    /**
+     * 判断当前节点是否存在元素
+     * @return true/false
+     */
+    boolean hasElement(){
+        return elementNum>0;
     }
 }
