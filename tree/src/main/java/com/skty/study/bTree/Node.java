@@ -35,6 +35,16 @@ class Node<K extends Comparable<K>, V> {
     private NodeType nodeType;
 
     /**
+     * 当前节点的前驱左侧元素（第一个小于当前节点中所有元素的元素）
+     */
+    private Element<K, V> predecessorElement;
+
+    /**
+     * 当前节点的后继右侧元素（第一个大于当前节点中所有元素的元素）
+     */
+    private Element<K, V> successorElement;
+
+    /**
      * 节点类型
      */
     enum NodeType {
@@ -108,7 +118,7 @@ class Node<K extends Comparable<K>, V> {
      * @param index 目标索引
      * @return 所有左边子节点构成的数组
      */
-    Element<K, V>[] getLeftElement(int index) {
+    Element<K, V>[] getLeftElementFromIndex(int index) {
         return Arrays.copyOfRange(elements, 0, index);
     }
 
@@ -118,7 +128,7 @@ class Node<K extends Comparable<K>, V> {
      * @param index 目标索引
      * @return 所有右边子节点构成的数组
      */
-    Element<K, V>[] getRightElement(int index) {
+    Element<K, V>[] getRightElementFromIndex(int index) {
         return Arrays.copyOfRange(elements, index + 1, elementNum);
     }
 
@@ -162,6 +172,28 @@ class Node<K extends Comparable<K>, V> {
     }
 
     /**
+     * 判断节点中的元素数量是否符合下限（ 阶/2 取上限-1）
+     *
+     * @return true-低于下限/false
+     */
+    boolean lowerThanEleLowestLimit() {
+        //阶/2 取上限-1
+        int limit = (int) (Math.ceil((double) nodeSize / 2) - 1);
+        return elementNum < limit;
+    }
+
+    /**
+     * 判断节点中的元素数量是否丰满（元素数量大于 阶/2 取上限-1）大于元素最小限制
+     *
+     * @return true-低于下限/false
+     */
+    boolean moreThanLowestLimit() {
+        //阶/2 取上限-1
+        int limit = (int) (Math.ceil((double) nodeSize / 2) - 1);
+        return elementNum > limit;
+    }
+
+    /**
      * 获取当前节点中的中间元素, 如果为偶数，就直接取下限
      *
      * @return 返回中间元素
@@ -190,10 +222,44 @@ class Node<K extends Comparable<K>, V> {
             }
             element.setIndex(index);
             element.setCurrentNode(this);
+
+            //复制左右子树
+            if (index == 0) {//第一个元素
+                if (elements[index + 1] != null) {
+                    element.setRightNode(elements[index + 1].getLeftNode());
+                }
+            } else if (index == elementNum) {//最后一个元素
+                if (elements[index - 1] != null) {
+                    element.setLeftNode(elements[index - 1].getRightNode());
+                }
+            } else {
+                if (elements[index + 1] != null) {
+                    element.setRightNode(elements[index + 1].getLeftNode());
+                }
+                if (elements[index - 1] != null) {
+                    element.setLeftNode(elements[index - 1].getRightNode());
+                }
+            }
+
             elementNum++;
         } else {
             throw new IllegalArgumentException("向节点插入元素时，不合法的插入的位置");
         }
+    }
+
+    /**
+     * 使用指定的元素替换指定索引位置的元素
+     *
+     * @param element 操作的元素
+     * @param index   要替换元素的索引
+     */
+    void replaceElement(Element<K, V> element, int index) {
+        Element<K, V> oldElement = elements[index];
+        element.setLeftNode(oldElement.getLeftNode());
+        element.setRightNode(oldElement.getRightNode());
+        element.setIndex(index);
+        element.setCurrentNode(this);
+        elements[index] = element;
     }
 
 
@@ -238,5 +304,88 @@ class Node<K extends Comparable<K>, V> {
      */
     boolean hasElement(){
         return elementNum>0;
+    }
+
+    /**
+     * 删除当前节点中指定索引位置的元素
+     *
+     * @param deleteIndex 要删除的位置
+     */
+    void deleteElement(int deleteIndex) {
+        if (deleteIndex > 0 && deleteIndex < elementNum) {
+            //删除最后一个元素,直接将最后一个元素置空；删除中间元素需要进行元素移动
+            if (deleteIndex == elementNum - 1) {
+                elements[deleteIndex] = null;
+            } else {
+                Element<K, V>[] elements = Arrays.copyOfRange(this.elements, deleteIndex + 1, elementNum);
+                System.arraycopy(elements, 0, this.elements, deleteIndex, elements.length);
+            }
+            elementNum--;
+        } else {
+            throw new IllegalArgumentException("删除节点的索引位置不合法,位置:" + deleteIndex + " ;当前元素数:" + elementNum);
+        }
+    }
+
+    public Element<K, V> getPredecessorElement() {
+        return predecessorElement;
+    }
+
+    public void setPredecessorElement(Element<K, V> predecessorElement) {
+        this.predecessorElement = predecessorElement;
+    }
+
+    public Element<K, V> getSuccessorElement() {
+        return successorElement;
+    }
+
+    public void setSuccessorElement(Element<K, V> successorElement) {
+        this.successorElement = successorElement;
+    }
+
+    /**
+     * 获取节点最小的一个元素，最左侧的元素
+     *
+     * @return 当前节点最小的元素
+     */
+    Element<K, V> getMiniElement() {
+        return elements[0];
+    }
+
+    /**
+     * 返回当前节点最大的一个元素（最右边的一个元素）
+     *
+     * @return 当前节点最大的元素
+     */
+    Element<K, V> getMaxElement() {
+        return elements[elementNum - 1];
+    }
+
+    /**
+     * 将元素追加到节点后面
+     *
+     * @param useCurrentNode 是否使用当前节点最后一个元素的右节点作为新加入元素列表的第一个元素的左子树,false：使用新加的元素
+     * @param elements       要追加的元素
+     */
+    @SafeVarargs
+    final void appendElements(boolean useCurrentNode, Element<K, V>... elements) {
+        if (elements.length + elementNum > nodeSize) {
+            throw new IllegalArgumentException("超出节点元素数量");
+        }
+        int i = 0;
+        for (Element<K, V> e : elements) {
+            e.setCurrentNode(this);
+            e.setIndex(elementNum + i);
+            i++;
+        }
+        if (useCurrentNode) {
+            elements[0].setLeftNode(this.elements[elementNum - 1].getRightNode());
+        } else {
+            this.elements[elementNum - 1].setRightNode(elements[0].getLeftNode());
+        }
+        System.arraycopy(elements, 0, this.elements, elementNum, elements.length);
+    }
+
+    public void setNodeType(NodeType nodeType) {
+        this.nodeType = nodeType;
     }
 }

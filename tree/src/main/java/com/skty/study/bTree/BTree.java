@@ -40,8 +40,200 @@ public class BTree<K extends Comparable<K>, V> {
      * @return true:不存在该元素，已经新增进去  false:1.该元素已经存在树中，用新元素替换旧元素
      */
     public boolean insert(K key, V value) {
-        return addElement(new Element<K, V>(key, value));
+        return addElement(new Element<>(key, value));
     }
+
+    /**
+     * 删除元素
+     *
+     * @param key 要删除的key
+     * @return true:找到元素并对其进行了删除 ，false:其他情况
+     */
+    public boolean delete(K key) {
+        //查找元素，找到元素，进行删除操作
+        Element<K, V> deleteElement = findElement(key);
+        if (deleteElement != null) {
+            Node<K, V> currentNode = deleteElement.getCurrentNode();
+            if (currentNode.isLeafNode()) {//叶子节点删除元素
+                /*叶子节点删除元素
+                 *1.将当前元素从节点中移除
+                 *2.判断是否需要下溢
+                 * 2.1：需要下溢：判断两个兄弟节点是否丰满，如果丰满，将该兄弟节点中的符合要求的元素进行上升到父节点，同时将父元素中的元素进行下移到被删除元素的叶子节点
+                 *        判断父元素是否需要下溢，继续对父元素执行下溢操作
+                 * 2.2:不需要下溢，直接删除元素
+                 */
+                currentNode.deleteElement(deleteElement.getIndex());
+                afterElementDelete(currentNode);
+            } else {//内部节点
+
+            }
+        }
+        return false;
+    }
+
+
+    /**
+     * 删除叶子节点中的元素
+     *
+     * @param element 要进行删除的元素
+     */
+    private void deleteLeafElement(Element<K, V> element) {
+        Node<K, V> currentNode = element.getCurrentNode();
+        //从节点中删除元素
+        currentNode.deleteElement(element.getIndex());
+        afterElementDelete(currentNode);
+    }
+
+
+    /**
+     * 元素删除后的操作，判断当前节点删除完元素后是否需要进行下溢操作，如果需要则进行下溢
+     */
+    private void afterElementDelete(Node<K, V> currentNode) {
+        if (currentNode.lowerThanEleLowestLimit()) {//当前删除元素后的节点元素过少，需要进行下溢
+            //获取可以借元素的兄弟节点
+            SiblingNodeChooseMode siblingNodeChooseMode = chooseUpSiblingNode(currentNode);
+            switch (siblingNodeChooseMode.type) {
+                case SiblingNodeChooseMode.LEFT_SIBLING://从左侧借，右旋转
+                    rotateRight(siblingNodeChooseMode.siblingNode, currentNode.getPredecessorElement(), currentNode);
+                    break;
+                case SiblingNodeChooseMode.RIGHT_SIBLING://从右侧借,左旋转
+                    rotateLeft(siblingNodeChooseMode.siblingNode, currentNode.getSuccessorElement(), currentNode);
+                    break;
+                case SiblingNodeChooseMode.OVERFLOW_SIBLING_LEFT://无法借兄弟节点，需要进行节点合并，将父节点中的元素进行下溢(与左兄弟节点结合)
+                    elementUnderflow(siblingNodeChooseMode.siblingNode, currentNode.getPredecessorElement(), currentNode);
+                    break;
+                case SiblingNodeChooseMode.OVERFLOW_SIBLING_RIGHT://无法借兄弟节点，需要进行节点合并，将父节点中的元素进行下溢(与右兄弟节点结合)
+                    elementUnderflow(currentNode, currentNode.getSuccessorElement(), siblingNodeChooseMode.siblingNode);
+                    break;
+                case SiblingNodeChooseMode.ILLEGAL_MODE:
+                    throw new IllegalArgumentException("当前树存在问题,无法删除元素");
+            }
+        }
+    }
+
+    /**
+     * 执行元素下溢操作
+     *
+     * @param leftChildNode  元素下溢时的左侧左节点
+     * @param middleElement  元素下溢时的中间元素
+     * @param rightChildNode 元素下溢时的右侧子节点
+     */
+    private void elementUnderflow(Node<K, V> leftChildNode, Element<K, V> middleElement, Node<K, V> rightChildNode) {
+        Element<K, V> preElement = middleElement.getPreElement();
+        Element<K, V> nextElement = middleElement.getNextElement();
+        //将中间节点从父节点删除
+        Node<K, V> middleEleCurrentNode = middleElement.getCurrentNode();
+        middleEleCurrentNode.deleteElement(middleElement.getIndex());
+
+        //使用左子树作为新的节点，将其他节点新增到里面
+        Element<K, V>[] rightElements = rightChildNode.getElements();
+        leftChildNode.appendElements(true, middleElement);
+        leftChildNode.appendElements(false, rightElements);
+
+        //设置元素子节点关联
+        preElement.setRightNode(leftChildNode);
+        nextElement.setLeftNode(leftChildNode);
+
+        //将右节点中的所有子节点的parentNode改为左节点
+        changeParentNode(leftChildNode, rightElements);
+
+        //如果当前下溢节点为根节点,则不必要再传播下去
+        if (middleEleCurrentNode.isRootNode()) {
+            //根节点下溢后，如果根节点没有元素，则将新生成的节点升为根节点；降低树高
+            if (!middleEleCurrentNode.hasElement()) {
+                leftChildNode.setParentNode(null);
+                leftChildNode.setNodeType(Node.NodeType.ROOTNODE);
+                this.rootNode = leftChildNode;
+                height--;
+            }
+        } else {
+            //由于执行了下溢操作，可能父节点也需要进行下溢（递归操作）
+            afterElementDelete(middleEleCurrentNode);
+        }
+    }
+
+
+    /**
+     * 执行左旋转
+     *
+     * @param fromNode        初始节点（左侧的节点）
+     * @param opElement       操作的中间元素
+     * @param destinationNode 旋转目的节点(右侧的节点)
+     */
+    private void rotateRight(Node<K, V> fromNode, Element<K, V> opElement, Node<K, V> destinationNode) {
+        Element<K, V> elementMini = fromNode.getMaxElement();//旋转元素中的最小的一个
+        Node<K, V> miniRightNode = elementMini.getRightNode();//最小元素的右子节点
+        Node<K, V> middleEleNode = opElement.getCurrentNode();//中间元素所在节点
+        middleEleNode.replaceElement(elementMini, opElement.getIndex());//将最小元素与中间元素进行替换
+        destinationNode.insertElement(opElement, 0);//将中间元素插入到目的节点的最左侧（在该节点中最小）
+        opElement.setLeftNode(miniRightNode);//将最小元素的右节点作为中间元素下移后得到元素的左子树
+    }
+
+    /**
+     * 执行右旋转
+     *
+     * @param fromNode        初始节点(右边的节点)
+     * @param opElement       执行操作的中间节点
+     * @param destinationNode 旋转后的目标节点（左侧节点）
+     */
+    private void rotateLeft(Node<K, V> fromNode, Element<K, V> opElement, Node<K, V> destinationNode) {
+        Element<K, V> maxElement = fromNode.getMiniElement();
+        Node<K, V> maxEleLeftNode = maxElement.getLeftNode();
+        Node<K, V> middleEleNode = opElement.getCurrentNode();
+        middleEleNode.replaceElement(maxElement, opElement.getIndex());
+        destinationNode.insertElement(opElement, destinationNode.getElementNum());
+        opElement.setRightNode(maxEleLeftNode);
+    }
+
+    /**
+     * 将指定的元素从所在节点移动到指定节点的指定位置
+     *
+     * @param element    要移动的元素
+     * @param targetNode 移动到的节点
+     * @param index      指定的位置
+     */
+    private void moveElementToNode(Element<K, V> element, Node<K, V> targetNode, int index) {
+        element.getCurrentNode().deleteElement(element.getIndex());//将目标元素先从指定节点删除
+        targetNode.replaceElement(element, index);//将当前元素替换到指定节点的指定元素
+    }
+
+
+    /**
+     * 从当前节点的左右兄弟节点中选择能够上升元素到父节的节点
+     *
+     * @return 从左兄弟节点开始查找, 查完左，之后查右，如果查到一个符合的就进行返回，如果都没有，就返回null
+     */
+    private SiblingNodeChooseMode chooseUpSiblingNode(Node<K, V> currentNode) {
+        Element<K, V> predecessorElement = currentNode.getPredecessorElement();
+        Element<K, V> successorElement = currentNode.getSuccessorElement();
+
+        Node<K, V> leftSibling = null;
+        Node<K, V> rightSibling = null;
+
+        if (predecessorElement != null) {
+            leftSibling = predecessorElement.getLeftNode();
+            if (leftSibling != null && leftSibling.moreThanLowestLimit()) {
+                return new SiblingNodeChooseMode(leftSibling, SiblingNodeChooseMode.LEFT_SIBLING);
+            }
+        }
+
+        if (successorElement != null) {
+            rightSibling = successorElement.getLeftNode();
+            if (rightSibling != null && rightSibling.moreThanLowestLimit()) {
+                return new SiblingNodeChooseMode(rightSibling, SiblingNodeChooseMode.RIGHT_SIBLING);
+            }
+        }
+
+        if (leftSibling == null && rightSibling != null) {
+            return new SiblingNodeChooseMode(rightSibling, SiblingNodeChooseMode.OVERFLOW_SIBLING_RIGHT);
+        }
+        if (rightSibling == null && leftSibling != null) {
+            return new SiblingNodeChooseMode(leftSibling, SiblingNodeChooseMode.OVERFLOW_SIBLING_LEFT);
+        }
+
+        return new SiblingNodeChooseMode(null, SiblingNodeChooseMode.ILLEGAL_MODE);
+    }
+
 
     /**
      * 将当前B树的数据结构生成可打印的字符串
@@ -123,17 +315,6 @@ public class BTree<K extends Comparable<K>, V> {
         return insertResult;
     }
 
-
-    /**
-     * 执行元素插入
-     *
-     * @param element    要插入的元素
-     * @param insertMode 插入模式
-     */
-    private void insertElement(Element<K, V> element, InsertMode insertMode) {
-        Element<K, V> targetElement = insertMode.targetElement;
-        targetElement.getCurrentNode().getLogicSize();
-    }
 
     /**
      * 查找B树，获取指定key对应的value
@@ -241,9 +422,9 @@ public class BTree<K extends Comparable<K>, V> {
             int middleElementIndex = middleElement.getIndex();
             final int nodeSize = node.getNodeSize();
             //左边节点构成的数组
-            Element<K, V>[] leftElements = node.getLeftElement(middleElementIndex);
+            Element<K, V>[] leftElements = node.getLeftElementFromIndex(middleElementIndex);
             //右边节点构成的节点
-            Element<K, V>[] rightElements = node.getRightElement(middleElementIndex);
+            Element<K, V>[] rightElements = node.getRightElementFromIndex(middleElementIndex);
 
             //如果当前节点是叶子节点(或者当前数的高度为1，只有一层)，则新生成的两个节点也是在叶子节点；不是的话表示当前为中间节点或者根节点，则需要将新生成的节点作为中间节点
             Node.NodeType nodeType=node.isLeafNode()||height==1?Node.NodeType.LEAFNODE: Node.NodeType.MIDDLENODE;
@@ -348,6 +529,7 @@ public class BTree<K extends Comparable<K>, V> {
         return new InsertMode(null, InsertMode.ILLEGAL_MODE);
     }
 
+
     /**
      * 插入元素时的模式，用来指示当前要插入的元素，和插入操作的模式，插入在指定元素的左边/右边，还是不进行插入，更新查找到的元素
      */
@@ -391,7 +573,45 @@ public class BTree<K extends Comparable<K>, V> {
             this.targetElement = targetElement;
             this.mode = mode;
         }
+    }
 
+
+    /**
+     * 兄弟节点选择模式
+     */
+    private class SiblingNodeChooseMode {
+        /**
+         * 左侧兄弟节点
+         */
+        static final int LEFT_SIBLING = -1;
+        /**
+         * 右侧兄弟节点
+         */
+        static final int RIGHT_SIBLING = 1;
+
+        /**
+         * 使用左兄弟节点进行下溢操作
+         */
+        static final int OVERFLOW_SIBLING_LEFT = -9;
+
+        /**
+         * 使用右兄弟节点进行下溢操作
+         */
+        static final int OVERFLOW_SIBLING_RIGHT = 9;
+
+        /**
+         * 异常
+         */
+        static final int ILLEGAL_MODE = -99;
+
+
+        Node<K, V> siblingNode;
+        int type;
+
+        SiblingNodeChooseMode(Node<K, V> siblingNode, int type) {
+            this.siblingNode = siblingNode;
+            this.type = type;
+        }
     }
 
 }

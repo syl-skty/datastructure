@@ -90,6 +90,7 @@ class Element<K extends Comparable<K>, V> {
 
     void setLeftNode(Node<K, V> leftNode) {
         this.leftNode = leftNode;
+        leftNode.setSuccessorElement(this);
     }
 
     Node<K, V> getRightNode() {
@@ -106,6 +107,7 @@ class Element<K extends Comparable<K>, V> {
 
     void setRightNode(Node<K, V> rightNode) {
         this.rightNode = rightNode;
+        rightNode.setPredecessorElement(this);
     }
 
     /**
@@ -129,6 +131,7 @@ class Element<K extends Comparable<K>, V> {
         }
         return null;
     }
+
 
     /**
      * 判断当前元素在当前节点上是否有后置元素
