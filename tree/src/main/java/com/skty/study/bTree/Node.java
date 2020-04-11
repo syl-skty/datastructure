@@ -105,7 +105,7 @@ class Node<K extends Comparable<K>, V> {
     }
 
     Element<K, V> getElement(int index) {
-        if (index < elementNum - 1) {
+        if (index < elementNum) {
             return elements[index];
         } else {
             throw new IndexOutOfBoundsException("当前所取得节点超出节点元素大小");
@@ -194,13 +194,15 @@ class Node<K extends Comparable<K>, V> {
     }
 
     /**
-     * 获取当前节点中的中间元素, 如果为偶数，就直接取下限
+     * 获取当前节点中的中间元素, 如果为偶数，就直接取上限
      *
      * @return 返回中间元素
      */
     Element<K, V> getMiddleElement() {
-        int index = Math.floorDiv(elementNum, 2);
-        return getElement(index > 1 ? index - 1 : 0);
+        //上面这种是取前面的，要先除以2取上限，之后再减一，比较麻烦，用下面的取后面的将会更方便些
+       /* int limit = (int) (Math.ceil((double) nodeSize / 2) - 1);
+        return getElement(limit);*/
+        return getElement(elementNum / 2);
     }
 
 
@@ -280,13 +282,13 @@ class Node<K extends Comparable<K>, V> {
                         insertElement(element, elementNum);
                         return;
                     } else {//中间元素，需要判断要插入的元素是不是比当前元素大，比当前元素的后面元素小，如果是则插入到当前元素的后面，否则继续对下一个元素进行判断
-                        if (elements[i+1].keyGreaterThan(key)) {
+                        if (elements[i + 1].keyGreaterThan(key)) {
                             insertElement(element, i + 1);
                             return;
                         }
                     }
-                } else if (compare < 0) {//值小于当前元素,则表示要将元素插入到当前元素的左侧，要将当前元素以及后面的元素全部后移
-                    insertElement(element, i - 1);
+                } else if (compare < 0) {//值小于当前元素,则表示要将元素插入到当前元素的左侧，要将当前元素以及后面的元素全部后移(可能当前元素为第一个元素，则插入到索引为0的地方)
+                    insertElement(element, Math.max(i - 1, 0));
                     return;
                 } else {//元素相等，直接替换当前元素(当前节点元素数量保持不变)
                     elements[i] = element;
@@ -300,10 +302,11 @@ class Node<K extends Comparable<K>, V> {
 
     /**
      * 判断当前节点是否存在元素
+     *
      * @return true/false
      */
-    boolean hasElement(){
-        return elementNum>0;
+    boolean hasElement() {
+        return elementNum > 0;
     }
 
     /**

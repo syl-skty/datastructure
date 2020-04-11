@@ -26,10 +26,19 @@ public class BTree<K extends Comparable<K>, V> {
      */
     private Node<K, V> rootNode;
 
+    /**
+     * 创建一颗B树
+     *
+     * @param size 树的阶。大于2
+     */
     public BTree(int size) {
-        this.size = size;
-        rootNode = new Node<>(size, Node.NodeType.ROOTNODE, null);
-        height = 1;//树高为1
+        if (size > 2) {
+            this.size = size;
+            rootNode = new Node<>(size, Node.NodeType.ROOTNODE, null);
+            height = 1;//树高为1
+        } else {
+            throw new IllegalArgumentException("B树的阶必须大于2");
+        }
     }
 
     /**
@@ -254,7 +263,7 @@ public class BTree<K extends Comparable<K>, V> {
                 if (e.hasLeftNode()) {
                     nextNodeList.add(e.getLeftNode());
                 }
-                if (e.isNodeLastElement()&&e.hasRightLeft()) {//最后一个元素需要将左右子树同时打印
+                if (e.isNodeLastElement() && e.hasRightLeft()) {//最后一个元素需要将左右子树同时打印
                     nextNodeList.add(e.getRightNode());
                 }
             }
@@ -377,9 +386,7 @@ public class BTree<K extends Comparable<K>, V> {
      * @return 返回允许插入当前元素的节点, 如果在搜索的过程中发现元素已经存在，则返回null
      */
     private InsertMode getInsertMode(Node<K, V> startNode, K insertKey) {
-        if (startNode.getElementNum() == 0) {//没有元素，初始状态
-            return firstInsertMode();
-        } else {
+        if (startNode.hasElement()) {
             Element<K, V>[] elements = startNode.getElements();
             int length = elements.length;
             //是否可以在当前节点上进行插入操作（1.当前节点是叶子节点   2.当前树高为1，且当前节点为根节点）
@@ -402,6 +409,8 @@ public class BTree<K extends Comparable<K>, V> {
                 }
             }
             return illegalMode();//树有问题，不合法操作
+        } else {//没有元素，初始状态
+            return firstInsertMode();
         }
     }
 
@@ -427,10 +436,10 @@ public class BTree<K extends Comparable<K>, V> {
             Element<K, V>[] rightElements = node.getRightElementFromIndex(middleElementIndex);
 
             //如果当前节点是叶子节点(或者当前数的高度为1，只有一层)，则新生成的两个节点也是在叶子节点；不是的话表示当前为中间节点或者根节点，则需要将新生成的节点作为中间节点
-            Node.NodeType nodeType=node.isLeafNode()||height==1?Node.NodeType.LEAFNODE: Node.NodeType.MIDDLENODE;
+            Node.NodeType nodeType = node.isLeafNode() || height == 1 ? Node.NodeType.LEAFNODE : Node.NodeType.MIDDLENODE;
 
             //新生成的左子节点
-            Node<K, V> newLeftChildNode = new Node<>(nodeSize,nodeType, leftElements);
+            Node<K, V> newLeftChildNode = new Node<>(nodeSize, nodeType, leftElements);
             //新生成的右子节点
             Node<K, V> newRightChildNode = new Node<>(nodeSize, nodeType, rightElements);
 
