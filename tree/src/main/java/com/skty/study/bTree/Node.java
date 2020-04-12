@@ -1,6 +1,8 @@
 package com.skty.study.bTree;
 
 import java.util.Arrays;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 class Node<K extends Comparable<K>, V> {
@@ -234,7 +236,7 @@ class Node<K extends Comparable<K>, V> {
                 if (elements[index - 1] != null) {
                     element.setLeftNode(elements[index - 1].getRightNode());
                 }
-            } else {
+            } else {//中间元素
                 if (elements[index + 1] != null) {
                     element.setRightNode(elements[index + 1].getLeftNode());
                 }
@@ -291,9 +293,7 @@ class Node<K extends Comparable<K>, V> {
                     insertElement(element, Math.max(i - 1, 0));
                     return;
                 } else {//元素相等，直接替换当前元素(当前节点元素数量保持不变)
-                    elements[i] = element;
-                    element.setCurrentNode(this);
-                    element.setIndex(i);
+                    this.replaceElement(element, i);
                     return;
                 }
             }
@@ -315,13 +315,15 @@ class Node<K extends Comparable<K>, V> {
      * @param deleteIndex 要删除的位置
      */
     void deleteElement(int deleteIndex) {
-        if (deleteIndex > 0 && deleteIndex < elementNum) {
+        if (deleteIndex >= 0 && deleteIndex < elementNum) {
             //删除最后一个元素,直接将最后一个元素置空；删除中间元素需要进行元素移动
             if (deleteIndex == elementNum - 1) {
                 elements[deleteIndex] = null;
             } else {
                 Element<K, V>[] elements = Arrays.copyOfRange(this.elements, deleteIndex + 1, elementNum);
+                Stream.of(elements).forEach(element -> element.setIndex(element.getIndex() - 1));//将移动的元素索引位置进行减一操作
                 System.arraycopy(elements, 0, this.elements, deleteIndex, elements.length);
+                this.elements[elementNum - 1] = null;//将最后一个元素进行删除
             }
             elementNum--;
         } else {
@@ -374,21 +376,33 @@ class Node<K extends Comparable<K>, V> {
         if (elements.length + elementNum > nodeSize) {
             throw new IllegalArgumentException("超出节点元素数量");
         }
-        int i = 0;
-        for (Element<K, V> e : elements) {
-            e.setCurrentNode(this);
-            e.setIndex(elementNum + i);
-            i++;
+        if (elements.length > 0) {
+            int i = 0;
+            for (Element<K, V> e : elements) {
+                e.setCurrentNode(this);
+                e.setIndex(elementNum + i);
+                i++;
+            }
+            if (elementNum > 0) {
+                if (useCurrentNode) {
+                    elements[0].setLeftNode(this.elements[elementNum - 1].getRightNode());
+                } else {
+                    this.elements[elementNum - 1].setRightNode(elements[0].getLeftNode());
+                }
+            }
+            System.arraycopy(elements, 0, this.elements, elementNum, elements.length);
         }
-        if (useCurrentNode) {
-            elements[0].setLeftNode(this.elements[elementNum - 1].getRightNode());
-        } else {
-            this.elements[elementNum - 1].setRightNode(elements[0].getLeftNode());
-        }
-        System.arraycopy(elements, 0, this.elements, elementNum, elements.length);
     }
 
     public void setNodeType(NodeType nodeType) {
         this.nodeType = nodeType;
     }
+
+    @Override
+    public String toString() {
+        String collect = Stream.of(Arrays.copyOfRange(elements, 0, elementNum)).map(Element::getKey).map(Objects::toString).collect(Collectors.joining(";"));
+        return collect + "[" + (predecessorElement == null ? "null" : predecessorElement.getKey()) +
+                "," + (successorElement == null ? "null" : successorElement.getKey()) + "]";
+    }
+
 }

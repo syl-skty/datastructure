@@ -56,46 +56,125 @@ public class BTree<K extends Comparable<K>, V> {
      * 删除元素
      *
      * @param key 要删除的key
-     * @return true:找到元素并对其进行了删除 ，false:其他情况
+     * @return true:找到元素并对其进行了删除 ，false:元素不存在这棵树上
      */
     public boolean delete(K key) {
+        boolean result = false;
         //查找元素，找到元素，进行删除操作
         Element<K, V> deleteElement = findElement(key);
         if (deleteElement != null) {
-            Node<K, V> currentNode = deleteElement.getCurrentNode();
-            if (currentNode.isLeafNode()) {//叶子节点删除元素
-                /*叶子节点删除元素
-                 *1.将当前元素从节点中移除
-                 *2.判断是否需要下溢
-                 * 2.1：需要下溢：判断两个兄弟节点是否丰满，如果丰满，将该兄弟节点中的符合要求的元素进行上升到父节点，同时将父元素中的元素进行下移到被删除元素的叶子节点
-                 *        判断父元素是否需要下溢，继续对父元素执行下溢操作
-                 * 2.2:不需要下溢，直接删除元素
-                 */
-                currentNode.deleteElement(deleteElement.getIndex());
-                afterElementDelete(currentNode);
+            if (deleteElement.getCurrentNode().isLeafNode()) {//叶子节点删除元素
+                deleteLeafElement(deleteElement);
             } else {//内部节点
-
+                deleteInnerElement(deleteElement);
             }
+            result = true;
         }
-        return false;
+        return result;
     }
 
 
     /**
      * 删除叶子节点中的元素
+     *  叶子节点删除元素
+     *  1.将当前元素从节点中移除
+     *  2.判断是否需要下溢
+     *      2.1：需要下溢：判断两个兄弟节点是否丰满，如果丰满，将该兄弟节点中的符合要求的元素进行上升到父节点，同时将父元素中的元素进行下移到被删除元素的叶子节点
+     *             判断父元素是否需要下溢，继续对父元素执行下溢操作
+     *      2.2:不需要下溢，直接删除元素
+     *
      *
      * @param element 要进行删除的元素
      */
     private void deleteLeafElement(Element<K, V> element) {
         Node<K, V> currentNode = element.getCurrentNode();
-        //从节点中删除元素
+        //先从叶子节点中删除元素
         currentNode.deleteElement(element.getIndex());
+        //判断是否下溢，执行下溢操作
         afterElementDelete(currentNode);
+    }
+
+    /**
+     * 删除内部节点中的元素，（实际上是将叶子节点中的元素进行删除）
+     * 1.获取当前元素的后驱，元素的右子树，一直往左子树进行遍历，直到到达叶子节点
+     * 2.判断前驱所在的节点是否丰满，如果丰满就删除该叶子节点的元素，进行返回
+     * 3.后驱无法删除，不管前驱所在节点是否丰满，直接删除前驱，
+     * 4.由于前驱删除可能会出现叶子节点元素下溢，需要对这个节点进行下溢操作
+     *
+     * @param element 被删除的元素
+     */
+    private void deleteInnerElement(Element<K, V> element) {
+        Node<K, V> currentNode = element.getCurrentNode();
+        int deleteElementIndex = element.getIndex();//被删除元素所在的索引位置
+        Node<K, V> predecessorNode = element.getLeftNode();//前驱元素所在的节点
+        Node<K, V> successorNode = element.getRightNode();//后继元素所在的节点
+        if (!replaceWithSuccessorElement(currentNode, deleteElementIndex, successorNode)) {
+            if (!replaceWithPredecessorElement(currentNode, deleteElementIndex, predecessorNode)) {
+                throw new IllegalArgumentException("删除内部元素错误,原因：树异常");
+            }
+        }
+    }
+
+    /**
+     * 使用后驱元素替换当前元素
+     *
+     * @param currentNode        被删除的元素所在的节点
+     * @param deleteElementIndex 被删除的元素在节点中的位置
+     * @param successorNode      被删除的元素的右子树
+     */
+    private boolean replaceWithSuccessorElement(Node<K, V> currentNode, int deleteElementIndex, Node<K, V> successorNode) {
+        do {
+            if (successorNode.isLeafNode()) {
+                if (successorNode.moreThanLowestLimit()) {
+                    Element<K, V> miniElement = successorNode.getMiniElement();//后驱元素
+                    moveElementToNode(miniElement, currentNode, deleteElementIndex);
+                    return true;
+                } else {
+                    return false;
+                }
+            } else {
+                successorNode = successorNode.getMiniElement().getLeftNode();
+            }
+        } while (true);
+    }
+
+    /**
+     * 使用前驱元素替换当前元素
+     *
+     * @param currentNode        被删除的元素所在的节点
+     * @param deleteElementIndex 被删除的元素在节点中的位置
+     * @param predecessorNode    被删除的元素的左子树
+     */
+    private boolean replaceWithPredecessorElement(Node<K, V> currentNode, int deleteElementIndex, Node<K, V> predecessorNode) {
+        do {
+            if (predecessorNode.isLeafNode()) {
+                Element<K, V> maxElement = predecessorNode.getMaxElement();//前驱元素
+                moveElementToNode(maxElement, currentNode, deleteElementIndex);//移动元素
+                //前驱元素删除后可能会出现下溢操作，需要进行下溢
+                afterElementDelete(predecessorNode);
+                return true;
+            } else {
+                predecessorNode = predecessorNode.getMaxElement().getRightNode();
+            }
+        } while (true);
     }
 
 
     /**
-     * 元素删除后的操作，判断当前节点删除完元素后是否需要进行下溢操作，如果需要则进行下溢
+     * 将指定的元素从所在节点移动到指定节点的指定位置
+     *
+     * @param element    要移动的元素
+     * @param targetNode 移动到的节点
+     * @param index      指定的位置
+     */
+    private void moveElementToNode(Element<K, V> element, Node<K, V> targetNode, int index) {
+        element.getCurrentNode().deleteElement(element.getIndex());//将目标元素先从指定节点删除
+        targetNode.replaceElement(element, index);//将当前元素替换到指定节点的指定元素
+    }
+
+
+    /**
+     * 叶子节点中的元素删除后的操作，判断当前节点删除完元素后是否需要进行下溢操作，如果需要则进行下溢
      */
     private void afterElementDelete(Node<K, V> currentNode) {
         if (currentNode.lowerThanEleLowestLimit()) {//当前删除元素后的节点元素过少，需要进行下溢
@@ -130,7 +209,7 @@ public class BTree<K extends Comparable<K>, V> {
     private void elementUnderflow(Node<K, V> leftChildNode, Element<K, V> middleElement, Node<K, V> rightChildNode) {
         Element<K, V> preElement = middleElement.getPreElement();
         Element<K, V> nextElement = middleElement.getNextElement();
-        //将中间节点从父节点删除
+        //将中间元素从父节点删除
         Node<K, V> middleEleCurrentNode = middleElement.getCurrentNode();
         middleEleCurrentNode.deleteElement(middleElement.getIndex());
 
@@ -140,8 +219,9 @@ public class BTree<K extends Comparable<K>, V> {
         leftChildNode.appendElements(false, rightElements);
 
         //设置元素子节点关联
-        preElement.setRightNode(leftChildNode);
-        nextElement.setLeftNode(leftChildNode);
+        Optional.ofNullable(preElement).ifPresent(pre -> pre.setRightNode(leftChildNode));
+        Optional.ofNullable(nextElement).ifPresent(next -> next.setLeftNode(leftChildNode));
+
 
         //将右节点中的所有子节点的parentNode改为左节点
         changeParentNode(leftChildNode, rightElements);
@@ -195,19 +275,6 @@ public class BTree<K extends Comparable<K>, V> {
     }
 
     /**
-     * 将指定的元素从所在节点移动到指定节点的指定位置
-     *
-     * @param element    要移动的元素
-     * @param targetNode 移动到的节点
-     * @param index      指定的位置
-     */
-    private void moveElementToNode(Element<K, V> element, Node<K, V> targetNode, int index) {
-        element.getCurrentNode().deleteElement(element.getIndex());//将目标元素先从指定节点删除
-        targetNode.replaceElement(element, index);//将当前元素替换到指定节点的指定元素
-    }
-
-
-    /**
      * 从当前节点的左右兄弟节点中选择能够上升元素到父节的节点
      *
      * @return 从左兄弟节点开始查找, 查完左，之后查右，如果查到一个符合的就进行返回，如果都没有，就返回null
@@ -219,27 +286,28 @@ public class BTree<K extends Comparable<K>, V> {
         Node<K, V> leftSibling = null;
         Node<K, V> rightSibling = null;
 
-        if (predecessorElement != null) {
+        if (predecessorElement != null) {//先查丰满的左兄弟节点
             leftSibling = predecessorElement.getLeftNode();
             if (leftSibling != null && leftSibling.moreThanLowestLimit()) {
                 return new SiblingNodeChooseMode(leftSibling, SiblingNodeChooseMode.LEFT_SIBLING);
             }
         }
 
-        if (successorElement != null) {
+        if (successorElement != null) {//再查丰满的右兄弟节点
             rightSibling = successorElement.getLeftNode();
             if (rightSibling != null && rightSibling.moreThanLowestLimit()) {
                 return new SiblingNodeChooseMode(rightSibling, SiblingNodeChooseMode.RIGHT_SIBLING);
             }
         }
 
-        if (leftSibling == null && rightSibling != null) {
+        if (leftSibling == null && rightSibling != null) {//没有丰满的兄弟节点，则返回非空的兄弟节点
             return new SiblingNodeChooseMode(rightSibling, SiblingNodeChooseMode.OVERFLOW_SIBLING_RIGHT);
         }
-        if (rightSibling == null && leftSibling != null) {
+        if (rightSibling == null && leftSibling != null) {//没有丰满的兄弟节点，则返回非空的兄弟节点
             return new SiblingNodeChooseMode(leftSibling, SiblingNodeChooseMode.OVERFLOW_SIBLING_LEFT);
         }
 
+        //左右兄弟都为空，表示树的结构有问题
         return new SiblingNodeChooseMode(null, SiblingNodeChooseMode.ILLEGAL_MODE);
     }
 
@@ -256,7 +324,7 @@ public class BTree<K extends Comparable<K>, V> {
     }
 
     private String print(List<Node<K, V>> nodeList) {
-        String str = nodeList.stream().map(this::nodeStr).collect(Collectors.joining("\t\t"));
+        String str = nodeList.stream().map(Node::toString).collect(Collectors.joining("\t\t"));
         List<Node<K, V>> nextNodeList = new ArrayList<>();
         for (Node<K, V> node : nodeList) {
             for (Element<K, V> e : node.getElements()) {
@@ -272,17 +340,6 @@ public class BTree<K extends Comparable<K>, V> {
             str = str + "\n" + print(nextNodeList);
         }
         return str;
-    }
-
-    /**
-     * 生成节点打印字符
-     *
-     * @param node 指定的节点
-     * @return 返沪打印字符
-     */
-    private String nodeStr(Node<K, V> node) {
-        Element<K, V>[] elements = node.getElements();
-        return Stream.of(elements).map(Element::getKey).map(Objects::toString).collect(Collectors.joining(";"));
     }
 
 
@@ -452,6 +509,10 @@ public class BTree<K extends Comparable<K>, V> {
                 parentNode = node.getParentNode();
             }
 
+            //由于中间元素上升，之前的子节点的前驱和后驱都需要进行修改
+            Optional.ofNullable(middleElement.getLeftNode()).ifPresent(left -> left.setSuccessorElement(null));//后驱元素上升了，设置其为空
+            Optional.ofNullable(middleElement.getRightNode()).ifPresent(right -> right.setPredecessorElement(null));//前驱元素为空，设置其为空
+
             //将当前节点上升到父节点
             parentNode.insertElement(middleElement);
 
@@ -468,7 +529,6 @@ public class BTree<K extends Comparable<K>, V> {
             //将左边元素的所有子节点的父节点修改为新生成的左子树,右边也是一样
             changeParentNode(newLeftChildNode, leftElements);
             changeParentNode(newRightChildNode, rightElements);
-            node = null;//置空
             //对新增完元素的父节点进行递归处理，判断其是否需要进行节点分裂
             afterElementInsert(parentNode);
         }

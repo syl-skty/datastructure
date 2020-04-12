@@ -197,4 +197,12 @@ class Element<K extends Comparable<K>, V> {
         return keyCompareWith(other.getKey());
     }
 
+    @Override
+    public String toString() {
+        return "Element{" +
+                "index=" + index +
+                ", key=" + key +
+                ", value=" + value +
+                '}';
+    }
 }
