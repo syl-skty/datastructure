@@ -14,7 +14,7 @@ public class Test {
         }
         // System.out.println(tree.printBTree());
         System.out.println("==================================删除开始======================================");
-        tree.delete(21);
+        tree.delete(16);
         System.out.println(tree.printBTree());
 
 
