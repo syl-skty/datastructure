@@ -2,6 +2,7 @@ package com.skty.study.bTree;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -252,6 +253,60 @@ class Node<K extends Comparable<K>, V> {
     }
 
     /**
+     * 将多个元素插入到指定的位置，如果指定位置上存在元素，则会将原有元素和后面元素后移
+     *
+     * @param elements       要插入的元素数组
+     * @param index          指定要插入的位置
+     * @param useCurrentNode 对连接位置的元素是否使用当前节点的子树
+     */
+    void insertElement(Element<K, V>[] elements, int index, boolean useCurrentNode) {
+        int length = elements.length;
+        if (length + elementNum > nodeSize) {
+            throw new IllegalArgumentException("插入多个元素到指定节点后，节点数据超出最大值");
+        }
+        if (index > elementNum) {
+            throw new IllegalArgumentException("不允许间隔空值进行插入");
+        }
+
+        if (index == elementNum) {//插入到最后面
+            appendElements(useCurrentNode, elements);
+        } else {
+            int i = index;
+            for (Element<K, V> e : elements) {
+                e.setCurrentNode(this);
+                e.setIndex(i);
+                //左右子树的父节点也进行修改
+                Optional.ofNullable(e.getLeftNode()).ifPresent(left -> left.setParentNode(this));
+                Optional.ofNullable(e.getRightNode()).ifPresent(right -> right.setParentNode(this));
+                i++;
+            }
+            Element<K, V>[] moveElements = Arrays.copyOfRange(this.elements, index, elementNum);
+            Stream.of(moveElements).forEach(e -> e.setIndex(e.getIndex() + length));//将后移的元素的索引位置也进行移动
+            System.arraycopy(elements, 0, this.elements, index, length);//先将插入的元素进行先插入
+            System.arraycopy(moveElements, 0, this.elements, index + length, moveElements.length);//将后面需要移动的元素也进行转移
+
+            Element<K, V> endElement = elements[length - 1];//最后一个插入的元素
+            Element<K, V> firstElement = elements[0];//第一个插入的元素
+            if (index == 0) {//插入到最前面
+                if (useCurrentNode) {
+                    endElement.setRightNode(endElement.getNextElement().getLeftNode());
+                } else {
+                    endElement.getNextElement().setLeftNode(endElement.getRightNode());
+                }
+            } else {//插入到中间位置
+                if (useCurrentNode) {
+                    firstElement.setLeftNode(firstElement.getPreElement().getRightNode());
+                    endElement.setRightNode(endElement.getNextElement().getLeftNode());
+                } else {
+                    firstElement.getPreElement().setRightNode(firstElement.getLeftNode());
+                    endElement.getNextElement().setLeftNode(endElement.getRightNode());
+                }
+            }
+        }
+    }
+
+
+    /**
      * 使用指定的元素替换指定索引位置的元素
      *
      * @param element 操作的元素
@@ -381,6 +436,9 @@ class Node<K extends Comparable<K>, V> {
             for (Element<K, V> e : elements) {
                 e.setCurrentNode(this);
                 e.setIndex(elementNum + i);
+            /*    //左右子树的父节点也进行修改
+                Optional.ofNullable(e.getLeftNode()).filter(n -> !this.equals(n)).ifPresent(left -> left.setParentNode(this));
+                Optional.ofNullable(e.getRightNode()).filter(n -> !this.equals(n)).ifPresent(right -> right.setParentNode(this));*/
                 i++;
             }
             if (elementNum > 0) {
@@ -391,6 +449,7 @@ class Node<K extends Comparable<K>, V> {
                 }
             }
             System.arraycopy(elements, 0, this.elements, elementNum, elements.length);
+            this.elementNum++;
         }
     }
 

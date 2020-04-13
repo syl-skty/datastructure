@@ -2,10 +2,8 @@ package com.skty.study.bTree;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * B树对象
@@ -91,7 +89,16 @@ public class BTree<K extends Comparable<K>, V> {
         //先从叶子节点中删除元素
         currentNode.deleteElement(element.getIndex());
         //判断是否下溢，执行下溢操作
-        afterElementDelete(currentNode);
+        afterElementDelete(currentNode, null);
+    }
+
+    /**
+     * 删除一个叶子节点
+     *
+     * @param node
+     */
+    private void deleteLeftNode(Node<K, V> node) {
+
     }
 
     /**
@@ -151,7 +158,7 @@ public class BTree<K extends Comparable<K>, V> {
                 Element<K, V> maxElement = predecessorNode.getMaxElement();//前驱元素
                 moveElementToNode(maxElement, currentNode, deleteElementIndex);//移动元素
                 //前驱元素删除后可能会出现下溢操作，需要进行下溢
-                afterElementDelete(predecessorNode);
+                afterElementDelete(predecessorNode, null);
                 return true;
             } else {
                 predecessorNode = predecessorNode.getMaxElement().getRightNode();
@@ -176,22 +183,22 @@ public class BTree<K extends Comparable<K>, V> {
     /**
      * 叶子节点中的元素删除后的操作，判断当前节点删除完元素后是否需要进行下溢操作，如果需要则进行下溢
      */
-    private void afterElementDelete(Node<K, V> currentNode) {
+    private void afterElementDelete(Node<K, V> currentNode, Node<K, V> newNode) {
         if (currentNode.lowerThanEleLowestLimit()) {//当前删除元素后的节点元素过少，需要进行下溢
             //获取可以借元素的兄弟节点
             SiblingNodeChooseMode siblingNodeChooseMode = chooseUpSiblingNode(currentNode);
             switch (siblingNodeChooseMode.type) {
                 case SiblingNodeChooseMode.LEFT_SIBLING://从左侧借，右旋转
-                    rotateRight(siblingNodeChooseMode.siblingNode, currentNode.getPredecessorElement(), currentNode);
+                    rotateRight(siblingNodeChooseMode.siblingNode, currentNode.getPredecessorElement(), currentNode, newNode);
                     break;
                 case SiblingNodeChooseMode.RIGHT_SIBLING://从右侧借,左旋转
-                    rotateLeft(siblingNodeChooseMode.siblingNode, currentNode.getSuccessorElement(), currentNode);
+                    rotateLeft(siblingNodeChooseMode.siblingNode, currentNode.getSuccessorElement(), currentNode, newNode);
                     break;
                 case SiblingNodeChooseMode.OVERFLOW_SIBLING_LEFT://无法借兄弟节点，需要进行节点合并，将父节点中的元素进行下溢(与左兄弟节点结合)
-                    elementUnderflow(siblingNodeChooseMode.siblingNode, currentNode.getPredecessorElement(), currentNode);
+                    elementUnderflow(siblingNodeChooseMode.siblingNode, currentNode.getPredecessorElement(), currentNode, newNode);
                     break;
                 case SiblingNodeChooseMode.OVERFLOW_SIBLING_RIGHT://无法借兄弟节点，需要进行节点合并，将父节点中的元素进行下溢(与右兄弟节点结合)
-                    elementUnderflow(currentNode, currentNode.getSuccessorElement(), siblingNodeChooseMode.siblingNode);
+                    elementUnderflow(currentNode, currentNode.getSuccessorElement(), siblingNodeChooseMode.siblingNode, newNode);
                     break;
                 case SiblingNodeChooseMode.ILLEGAL_MODE:
                     throw new IllegalArgumentException("当前树存在问题,无法删除元素");
@@ -205,26 +212,41 @@ public class BTree<K extends Comparable<K>, V> {
      * @param leftChildNode  元素下溢时的左侧左节点
      * @param middleElement  元素下溢时的中间元素
      * @param rightChildNode 元素下溢时的右侧子节点
+     * @param lastCombinedNode 上一次下溢操作后生成的新节点
      */
-    private void elementUnderflow(Node<K, V> leftChildNode, Element<K, V> middleElement, Node<K, V> rightChildNode) {
+    private void elementUnderflow(Node<K, V> leftChildNode, Element<K, V> middleElement, Node<K, V> rightChildNode, Node<K, V> lastCombinedNode) {
+        Node<K, V> middleEleCurrentNode = middleElement.getCurrentNode();//中间元素所在的节点
         Element<K, V> preElement = middleElement.getPreElement();
         Element<K, V> nextElement = middleElement.getNextElement();
-        //将中间元素从父节点删除
-        Node<K, V> middleEleCurrentNode = middleElement.getCurrentNode();
-        middleEleCurrentNode.deleteElement(middleElement.getIndex());
 
         //使用左子树作为新的节点，将其他节点新增到里面
-        Element<K, V>[] rightElements = rightChildNode.getElements();
+        Element<K, V>[] rightChildNodeElements = rightChildNode.getElements();
+
+        //将中间元素从父节点删除
+        middleEleCurrentNode.deleteElement(middleElement.getIndex());
+
         leftChildNode.appendElements(true, middleElement);
-        leftChildNode.appendElements(false, rightElements);
+
+        if (leftChildNode.getElementNum() == 1) {//下降中间元素后，元素为一个，说明之前节点在下溢时导致了节点元素全部删除，所以将将上一次下溢产生的节点设置为中间元素的子树
+            middleElement.setLeftNode(lastCombinedNode);
+        } else if (middleElement.getRightNode() != null && !middleElement.getRightNode().hasElement()) {
+            middleElement.setRightNode(lastCombinedNode);
+            if (lastCombinedNode != null) {
+                lastCombinedNode.setSuccessorElement(null);
+            }
+        } else {
+            middleElement.setRightNode(null);//由于右子树已经合并到左子树，先将右子树置为空，后面再将新的右子树加回去
+        }
+
+
+        leftChildNode.appendElements(false, rightChildNodeElements);
 
         //设置元素子节点关联
         Optional.ofNullable(preElement).ifPresent(pre -> pre.setRightNode(leftChildNode));
         Optional.ofNullable(nextElement).ifPresent(next -> next.setLeftNode(leftChildNode));
 
-
         //将右节点中的所有子节点的parentNode改为左节点
-        changeParentNode(leftChildNode, rightElements);
+        changeParentNode(leftChildNode, rightChildNodeElements);
 
         //如果当前下溢节点为根节点,则不必要再传播下去
         if (middleEleCurrentNode.isRootNode()) {
@@ -237,7 +259,7 @@ public class BTree<K extends Comparable<K>, V> {
             }
         } else {
             //由于执行了下溢操作，可能父节点也需要进行下溢（递归操作）
-            afterElementDelete(middleEleCurrentNode);
+            afterElementDelete(middleEleCurrentNode, leftChildNode);
         }
     }
 
@@ -249,12 +271,18 @@ public class BTree<K extends Comparable<K>, V> {
      * @param opElement       操作的中间元素
      * @param destinationNode 旋转目的节点(右侧的节点)
      */
-    private void rotateRight(Node<K, V> fromNode, Element<K, V> opElement, Node<K, V> destinationNode) {
+    private void rotateRight(Node<K, V> fromNode, Element<K, V> opElement, Node<K, V> destinationNode, Node<K, V> lastCombinedNode) {
         Element<K, V> elementMini = fromNode.getMaxElement();//旋转元素中的最小的一个
         Node<K, V> miniRightNode = elementMini.getRightNode();//最小元素的右子节点
+        miniRightNode.setPredecessorElement(null);
+        elementMini.getLeftNode().setSuccessorElement(null);
         Node<K, V> middleEleNode = opElement.getCurrentNode();//中间元素所在节点
+        fromNode.deleteElement(fromNode.getElementNum());//删除最大元素
         middleEleNode.replaceElement(elementMini, opElement.getIndex());//将最小元素与中间元素进行替换
         destinationNode.insertElement(opElement, 0);//将中间元素插入到目的节点的最左侧（在该节点中最小）
+        if (destinationNode.getElementNum() == 1) {
+            opElement.setRightNode(lastCombinedNode);
+        }
         opElement.setLeftNode(miniRightNode);//将最小元素的右节点作为中间元素下移后得到元素的左子树
     }
 
@@ -265,12 +293,18 @@ public class BTree<K extends Comparable<K>, V> {
      * @param opElement       执行操作的中间节点
      * @param destinationNode 旋转后的目标节点（左侧节点）
      */
-    private void rotateLeft(Node<K, V> fromNode, Element<K, V> opElement, Node<K, V> destinationNode) {
+    private void rotateLeft(Node<K, V> fromNode, Element<K, V> opElement, Node<K, V> destinationNode, Node<K, V> lastCombinedNode) {
         Element<K, V> maxElement = fromNode.getMiniElement();
         Node<K, V> maxEleLeftNode = maxElement.getLeftNode();
+        maxEleLeftNode.setSuccessorElement(null);
+        maxElement.getRightNode().setPredecessorElement(null);
         Node<K, V> middleEleNode = opElement.getCurrentNode();
         middleEleNode.replaceElement(maxElement, opElement.getIndex());
+        fromNode.deleteElement(0);//删除最小元素
         destinationNode.insertElement(opElement, destinationNode.getElementNum());
+        if (destinationNode.getElementNum() == 1) {
+            opElement.setLeftNode(lastCombinedNode);
+        }
         opElement.setRightNode(maxEleLeftNode);
     }
 
@@ -294,7 +328,7 @@ public class BTree<K extends Comparable<K>, V> {
         }
 
         if (successorElement != null) {//再查丰满的右兄弟节点
-            rightSibling = successorElement.getLeftNode();
+            rightSibling = successorElement.getRightNode();
             if (rightSibling != null && rightSibling.moreThanLowestLimit()) {
                 return new SiblingNodeChooseMode(rightSibling, SiblingNodeChooseMode.RIGHT_SIBLING);
             }

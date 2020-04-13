@@ -1,9 +1,5 @@
 package com.skty.study.bTree;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-
 public class Test {
 
     public static void main(String[] args) {
@@ -18,7 +14,7 @@ public class Test {
         }
         // System.out.println(tree.printBTree());
         System.out.println("==================================删除开始======================================");
-        tree.delete(3);
+        tree.delete(21);
         System.out.println(tree.printBTree());
 
 
