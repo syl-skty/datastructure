@@ -1,34 +1,76 @@
 package com.skty.study.bTree;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Random;
+import java.util.stream.Collectors;
+
 public class Test {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         BTree<Integer, String> tree = new BTree<>(3);
-        for (int i = 1; i < 23; i++) {
-            //int nextInt = new Random().nextInt(100000);
-            System.out.println("===================================" + i + "=====================================");
-            tree.insert(i, i + "");
-            System.out.println("\t|\n\t| " + i + "->" + i + "\n\t/");
-            System.out.println(tree.printBTree());
-            System.out.println("==================================end======================================");
-        }
-        // System.out.println(tree.printBTree());
-        System.out.println("==================================删除开始======================================");
-        tree.delete(16);
+        List<Integer> addedElement = new ArrayList<>();
+        generateElement(3, "tree\\src\\main\\java\\com\\skty\\study\\bTree\\lastInsert.txt", 30).forEach(e -> {
+            addedElement.add(e);
+            tree.insert(e, e.toString());
+        });
+        writeToFile(tree.printBTree() + "\n\n\n\n\n\n", "tree\\src\\main\\java\\com\\skty\\study\\bTree\\treePrint.txt", false);
+        writeToFile(addedElement.stream().map(Objects::toString).collect(Collectors.joining(";")),
+                "tree\\src\\main\\java\\com\\skty\\study\\bTree\\lastInsert.txt", false);
         System.out.println(tree.printBTree());
+        System.out.println("==================================删除开始======================================");
 
-
-
-      /*  int[] test = {41, 5, 96, 59, 52, 6, 82, 40, 1};
-        for (int i : test) {
-            System.out.println("===================================" + i + "=====================================");
-            tree.insert(i, i + "");
-            System.out.println("\t|\n\t| " + i + "->" + i + "\n\t/");
+        generateElement(3, "tree\\src\\main\\java\\com\\skty\\study\\bTree\\lastDelete.txt", 20).forEach(e -> {
+            try {
+                writeToFile(e + ";", "tree\\src\\main\\java\\com\\skty\\study\\bTree\\lastDelete.txt", true);
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+            System.out.println("===================================" + e + "=====================================");
+            tree.delete(e);
+            System.out.println("\t|\n\t| " + e + "->" + e + "\n\t/");
             System.out.println(tree.printBTree());
             System.out.println("==================================end======================================");
-        }*/
+        });
+        writeToFile(tree.printBTree(), "tree\\src\\main\\java\\com\\skty\\study\\bTree\\treePrint.txt", true);
     }
 
+
+    private static List<Integer> generateElement(int mode, String file, int num) throws IOException {
+        List<Integer> els = new ArrayList<>();
+        if (mode == 1) {
+            for (int i = 0; i < num; i++) {
+                els.add(i);
+            }
+        } else if (mode == 2) {
+            for (int i = 0; i < num; i++) {
+                els.add(new Random().nextInt(num));
+            }
+        } else {
+            List<String> strings = Files.readAllLines(new File(file).toPath());
+            strings.forEach(s -> {
+                String[] split = s.split(";");
+                for (String s1 : split) {
+                    els.add(Integer.valueOf(s1));
+                }
+            });
+        }
+        writeToFile("", file, false);
+        return els;
+    }
+
+
+    public static void writeToFile(String s, String fileName, boolean append) throws IOException {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(fileName, append))) {
+            writer.print(s);
+        }
+    }
 
     private static void searchTree(int key, BTree tree) {
         long start = System.currentTimeMillis();
